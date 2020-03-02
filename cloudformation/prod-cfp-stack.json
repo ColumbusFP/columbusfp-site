@@ -1,0 +1,279 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "KeyName": {
+      "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instances",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
+    },
+    "Domain": {
+      "Type": "String",
+      "Description": "Domain",
+      "Default": "columbusfp.org",
+      "AllowedValues": ["columbusfp.org"]
+    },
+    "HostedZoneId": {
+      "Type": "String",
+      "Description": "Domain",
+      "Default": "ZL368SP7CL87Y"
+    },
+    "SSLCertArn": {
+      "Type": "String",
+      "Description": "SSL Certificate Arn",
+      "Default": "arn:aws:acm:us-east-1:868406976718:certificate/bef6e1db-02d5-425a-92b5-074304fde378"
+    }
+  },
+  "Metadata": {
+    "AWS::CloudFormation::Designer": {
+      "1f9a54eb-8ae3-4f26-884f-f4e347dc6e10": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 3210,
+          "y": 2240
+        },
+        "z": 1,
+        "embeds": []
+      },
+      "c2f93c70-5fe4-4cd8-97d8-01e0289e9abb": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 3430,
+          "y": 2240
+        },
+        "z": 1,
+        "embeds": []
+      },
+      "982c83d5-a6b2-439d-8e1f-dadc05f076cd": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 3310,
+          "y": 2240
+        },
+        "z": 1,
+        "embeds": [],
+        "dependson": ["c2f93c70-5fe4-4cd8-97d8-01e0289e9abb"]
+      },
+      "0c8fea0c-6e3f-4b7a-bba7-5700f308ed38": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 3310,
+          "y": 2140
+        },
+        "z": 1,
+        "embeds": []
+      },
+      "ca28271b-897e-4bb1-820c-6516e2dd2d4e": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 3430,
+          "y": 2140
+        },
+        "z": 1,
+        "embeds": [],
+        "isassociatedwith": ["c2f93c70-5fe4-4cd8-97d8-01e0289e9abb"]
+      }
+    }
+  },
+  "Resources": {
+    "R53Frontend": {
+      "Type": "AWS::Route53::RecordSet",
+      "Properties": {
+        "AliasTarget": {
+          "HostedZoneId": "Z2FDTNDATAQYW2",
+          "DNSName": {
+            "Fn::GetAtt": ["CFFrontend", "DomainName"]
+          }
+        },
+        "Name": {
+          "Ref": "Domain"
+        },
+        "HostedZoneId": {
+          "Ref": "HostedZoneId"
+        },
+        "Type": "A"
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "1f9a54eb-8ae3-4f26-884f-f4e347dc6e10"
+        }
+      }
+    },
+    "S3Frontend": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "AccessControl": "PublicRead",
+        "BucketName": {
+          "Ref": "Domain"
+        },
+        "WebsiteConfiguration": {
+          "IndexDocument": "index.html"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "c2f93c70-5fe4-4cd8-97d8-01e0289e9abb"
+        }
+      }
+    },
+    "CFFrontend": {
+      "Type": "AWS::CloudFront::Distribution",
+      "Properties": {
+        "DistributionConfig": {
+          "CustomErrorResponses": [
+            {
+              "ErrorCachingMinTTL": 3600,
+              "ErrorCode": 404,
+              "ResponseCode": 200,
+              "ResponsePagePath": "/index.html"
+            }
+          ],
+          "DefaultCacheBehavior": {
+            "AllowedMethods": ["GET", "HEAD", "OPTIONS"],
+            "CachedMethods": ["GET", "HEAD", "OPTIONS"],
+            "Compress": true,
+            "ForwardedValues": {
+              "QueryString": true
+            },
+            "TargetOriginId": {
+              "Fn::Join": [
+                "-",
+                [
+                  "S3",
+                  {
+                    "Ref": "Domain"
+                  }
+                ]
+              ]
+            },
+            "ViewerProtocolPolicy": "redirect-to-https"
+          },
+          "DefaultRootObject": "index.html",
+          "Aliases": [
+            {
+              "Ref": "Domain"
+            }
+          ],
+          "Enabled": true,
+          "HttpVersion": "http2",
+          "PriceClass": "PriceClass_All",
+          "Origins": [
+            {
+              "DomainName": {
+                "Fn::Join": [
+                  ".",
+                  [
+                    {
+                      "Ref": "Domain"
+                    },
+                    "s3",
+                    "amazonaws",
+                    "com"
+                  ]
+                ]
+              },
+              "Id": {
+                "Fn::Join": [
+                  "-",
+                  [
+                    "S3",
+                    {
+                      "Ref": "Domain"
+                    }
+                  ]
+                ]
+              },
+              "S3OriginConfig": {
+                "OriginAccessIdentity": {
+                  "Fn::Sub": [
+                    "origin-access-identity/cloudfront/${OAI}",
+                    {
+                      "OAI": {
+                        "Ref": "CFCFOAPROD"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "ViewerCertificate": {
+            "AcmCertificateArn": {
+              "Ref": "SSLCertArn"
+            },
+            "SslSupportMethod": "sni-only",
+            "MinimumProtocolVersion": "TLSv1.1_2016"
+          }
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "982c83d5-a6b2-439d-8e1f-dadc05f076cd"
+        }
+      },
+      "DependsOn": ["S3Frontend", "CFCFOAPROD"]
+    },
+    "CFCFOAPROD": {
+      "Type": "AWS::CloudFront::CloudFrontOriginAccessIdentity",
+      "Properties": {
+        "CloudFrontOriginAccessIdentityConfig": {
+          "Comment": "Frontend Access Identity"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "0c8fea0c-6e3f-4b7a-bba7-5700f308ed38"
+        }
+      }
+    },
+    "S3BPPROD": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "S3Frontend"
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Sid": "AddPerm",
+              "Action": ["s3:GetObject"],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:aws:s3:::",
+                    {
+                      "Ref": "S3Frontend"
+                    },
+                    "/*"
+                  ]
+                ]
+              },
+              "Principal": "*"
+            }
+          ]
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "ca28271b-897e-4bb1-820c-6516e2dd2d4e"
+        }
+      }
+    }
+  }
+}
